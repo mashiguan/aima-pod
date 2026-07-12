@@ -44,6 +44,12 @@ export default function AdminPage() {
     setAuthed(window.localStorage.getItem("aima_admin_ok") === "1");
   }, []);
 
+  // 加载后台专属节目列表（放在早期 return 之前，遵守 React hook 顺序）
+  useEffect(() => {
+    if (!authed) return;
+    listMyEpisodes().then(setList).catch(() => setList([]));
+  }, [authed]);
+
   const tryPwd = () => {
     const want = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "";
     if (!want) {
@@ -89,10 +95,6 @@ export default function AdminPage() {
       </div>
     );
   }
-
-  useEffect(() => {
-    listMyEpisodes().then(setList).catch(() => setList([]));
-  }, []);
 
   const showToast = (msg: string) => {
     setToast(msg);
