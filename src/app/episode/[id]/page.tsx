@@ -98,8 +98,14 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
   const gradient = coverGradient(ep.id);
   const pct = Math.min(100, (currentTime / ep.duration_sec) * 100);
 
+  // 持久化"已选状态"到 localStorage。key 内含 device_id，所以多端不会互踩。
+  // 注意：next.vote / next.fav 是"目标最终值"，可能为 null/false（取消）。
+  // 不要用 `?? vote`，否则取消时会用旧值写回，刷新又被读出来。
   const persist = (next: { vote?: "like" | "dislike" | null; fav?: boolean }) => {
-    const data = { vote: next.vote ?? vote, fav: next.fav ?? fav };
+    const data = {
+      vote: next.vote !== undefined ? next.vote : vote,
+      fav: next.fav !== undefined ? next.fav : fav,
+    };
     try {
       localStorage.setItem(interactKey(ep.id), JSON.stringify(data));
     } catch {}
