@@ -45,12 +45,6 @@ export default async function HomePage() {
               开始聆听
               <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
             </Link>
-            <Link
-              href="/admin"
-              className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-5 py-2.5 text-sm text-white/80 ring-1 ring-inset ring-white/10 backdrop-blur transition hover:bg-white/10"
-            >
-              上传节目
-            </Link>
           </div>
         </div>
       </section>
