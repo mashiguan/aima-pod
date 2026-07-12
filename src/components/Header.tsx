@@ -1,0 +1,40 @@
+import Link from "next/link";
+import { Home, Compass, Upload, Headphones } from "lucide-react";
+
+export function Header() {
+  return (
+    <header className="sticky top-0 z-30 border-b border-white/5 bg-slate-950/70 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500">
+            <Headphones className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-white">爱玛播</p>
+            <p className="text-[10px] text-white/50">小马歌 · 声音与故事</p>
+          </div>
+        </Link>
+        <nav className="flex items-center gap-1 text-sm">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white/70 transition hover:bg-white/5 hover:text-white"
+          >
+            <Home className="h-3.5 w-3.5" /> 首页
+          </Link>
+          <Link
+            href="/discover"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white/70 transition hover:bg-white/5 hover:text-white"
+          >
+            <Compass className="h-3.5 w-3.5" /> 发现
+          </Link>
+          <Link
+            href="/admin"
+            className="ml-2 inline-flex items-center gap-1.5 rounded-full bg-violet-500/20 px-3 py-1.5 text-violet-200 ring-1 ring-inset ring-violet-400/40 transition hover:bg-violet-500/30"
+          >
+            <Upload className="h-3.5 w-3.5" /> 后台
+          </Link>
+        </nav>
+      </div>
+    </header>
+  );
+}
