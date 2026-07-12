@@ -34,6 +34,61 @@ export default function AdminPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [list, setList] = useState<Episode[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [authed, setAuthed] = useState<boolean | null>(null); // null=未确认, true=已通过
+  const [pwd, setPwd] = useState("");
+  const [pwdError, setPwdError] = useState("");
+
+  // 检查是否已通过（localStorage 持久化）
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setAuthed(window.localStorage.getItem("aima_admin_ok") === "1");
+  }, []);
+
+  const tryPwd = () => {
+    const want = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "";
+    if (!want) {
+      setPwdError("后端未设置 NEXT_PUBLIC_ADMIN_PASSWORD，无法进入");
+      return;
+    }
+    if (pwd === want) {
+      window.localStorage.setItem("aima_admin_ok", "1");
+      setAuthed(true);
+      setPwdError("");
+    } else {
+      setPwdError("密码不对，再试一次");
+    }
+  };
+
+  if (authed === null) {
+    return <div className="mx-auto max-w-md px-6 py-20 text-center text-white/40">验证中…</div>;
+  }
+
+  if (!authed) {
+    return (
+      <div className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center px-6">
+        <div className="w-full rounded-2xl border border-white/10 bg-white/5 p-6">
+          <h1 className="text-lg font-semibold text-white">管理后台</h1>
+          <p className="mt-1 text-sm text-white/50">请输入管理密码</p>
+          <input
+            type="password"
+            value={pwd}
+            onChange={(e) => setPwd(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && tryPwd()}
+            placeholder="••••••••"
+            className="mt-4 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+            autoFocus
+          />
+          {pwdError && <p className="mt-2 text-xs text-rose-300">{pwdError}</p>}
+          <button
+            onClick={tryPwd}
+            className="mt-4 w-full rounded-lg bg-violet-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-violet-400"
+          >
+            进入
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     listMyEpisodes().then(setList).catch(() => setList([]));
