@@ -34,14 +34,14 @@ export default async function HomePage() {
         </div>
         <div className="mx-auto max-w-7xl px-6 py-24 text-center">
           <p className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 backdrop-blur">
-            <Sparkles className="h-3 w-3 text-violet-300" /> 个人播客 · 声音与故事
+            <Sparkles className="h-3 w-3 text-violet-300" /> 小马歌 · 声音与故事
           </p>
           <h1 className="bg-gradient-to-r from-violet-200 via-fuchsia-200 to-cyan-200 bg-clip-text text-5xl font-bold tracking-tight text-transparent md:text-6xl">
-            爱玛播客畅响古今
+            爱玛播 · 随心说
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-base text-white/60">
-            故事、访谈、随笔、科普——从三国到硅谷，从胡同到黑洞。
-            一杯茶的时间，听见世界。
+            故事、访谈、随笔、经典——情绪、关系、认知、智慧。
+            品一杯茶，听一朵花。
           </p>
           <div className="mt-8 flex items-center justify-center gap-3">
             <Link

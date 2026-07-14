@@ -9,8 +9,8 @@ const geistSans = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "爱玛播 · 爱玛播客畅响古今",
-  description: "爱玛播客畅响古今",
+  title: "爱玛播 · 随心说",
+  description: "小马歌 · 声音与故事 —— 故事、访谈、随笔、经典。品一杯茶，听一朵花。",
 };
 
 export default function RootLayout({
