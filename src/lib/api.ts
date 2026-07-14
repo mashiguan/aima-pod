@@ -56,6 +56,7 @@ export interface NewEpisodeInput {
   cover: string | null;
   chapters: { t: number; label: string }[];
   featured: boolean;
+  album_id?: string | null;
 }
 
 export async function createEpisode(input: NewEpisodeInput): Promise<Episode> {
@@ -93,6 +94,7 @@ export async function createEpisode(input: NewEpisodeInput): Promise<Episode> {
     featured: ep.featured,
     plays: 0,
     published_at: ep.published_at,
+    album_id: ep.album_id ?? null,
   });
   if (error) {
     console.error("[createEpisode] supabase error:", error);
@@ -235,6 +237,7 @@ function rowToEpisode(row: any): Episode {
     chapters: Array.isArray(row.chapters) ? row.chapters : [],
     published_at: row.published_at,
     featured: !!row.featured,
+    album_id: row.album_id ?? null,
   };
 }
 
@@ -312,4 +315,170 @@ export async function deleteTag(id: string): Promise<void> {
   if (!sb) throw new Error("Supabase 未配置");
   const { error } = await sb.from("tags").delete().eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+/* ---------- 6. 专辑 ---------- */
+
+import type { Album, AlbumWithStats } from "./types";
+
+export async function listAlbums(): Promise<Album[]> {
+  const sb = createClient();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from("albums")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error || !data) {
+    console.warn("[supabase] listAlbums failed:", error?.message);
+    return [];
+  }
+  return data as Album[];
+}
+
+export async function getAlbum(id: string): Promise<Album | null> {
+  const sb = createClient();
+  if (!sb) return null;
+  const { data, error } = await sb.from("albums").select("*").eq("id", id).maybeSingle();
+  if (error || !data) return null;
+  return data as Album;
+}
+
+export interface NewAlbumInput {
+  name: string;
+  description?: string;
+  cover_url?: string | null;
+}
+
+export async function createAlbum(input: NewAlbumInput): Promise<Album> {
+  const sb = createClient();
+  if (!sb) throw new Error("Supabase 未配置");
+  const { data, error } = await sb
+    .from("albums")
+    .insert({
+      name: input.name.trim(),
+      description: input.description?.trim() ?? "",
+      cover_url: input.cover_url ?? null,
+    })
+    .select()
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "创建专辑失败");
+  return data as Album;
+}
+
+export async function updateAlbum(id: string, patch: Partial<NewAlbumInput>): Promise<void> {
+  const sb = createClient();
+  if (!sb) throw new Error("Supabase 未配置");
+  const { error } = await sb.from("albums").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteAlbum(id: string): Promise<void> {
+  const sb = createClient();
+  if (!sb) throw new Error("Supabase 未配置");
+  const { error } = await sb.from("albums").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/** 专辑 + 统计（按总 plays 降序，热门专辑用） */
+export async function listAlbumsWithStats(): Promise<AlbumWithStats[]> {
+  const sb = createClient();
+  if (!sb) return [];
+  // 一次拉所有 episode,在前端聚合（数据量小,作品 < 几百个完全没问题）
+  const [albumsRes, epsRes] = await Promise.all([
+    sb.from("albums").select("*").order("created_at", { ascending: false }),
+    sb.from("episodes").select("id, album_id, plays"),
+  ]);
+  if (albumsRes.error || !albumsRes.data) return [];
+  const albums = albumsRes.data as Album[];
+  const eps = (epsRes.data ?? []) as { id: string; album_id: string | null; plays: number }[];
+  const map = new Map<string, { count: number; plays: number }>();
+  for (const e of eps) {
+    if (!e.album_id) continue;
+    const cur = map.get(e.album_id) ?? { count: 0, plays: 0 };
+    cur.count += 1;
+    cur.plays += e.plays ?? 0;
+    map.set(e.album_id, cur);
+  }
+  return albums.map((a) => ({
+    ...a,
+    episode_count: map.get(a.id)?.count ?? 0,
+    total_plays: map.get(a.id)?.plays ?? 0,
+  }));
+}
+
+/* ---------- 7. 专辑订阅 ---------- */
+
+export async function isSubscribed(album_id: string): Promise<boolean> {
+  const sb = createClient();
+  if (!sb) return false;
+  const { data, error } = await sb
+    .from("album_subscriptions")
+    .select("id")
+    .eq("album_id", album_id)
+    .eq("device_id", getDeviceId())
+    .maybeSingle();
+  if (error) return false;
+  return !!data;
+}
+
+export async function subscribeAlbum(album_id: string): Promise<{ subscribed: boolean }> {
+  const sb = createClient();
+  if (!sb) throw new Error("Supabase 未配置");
+  // 查是否已订阅
+  const existing = await sb
+    .from("album_subscriptions")
+    .select("id")
+    .eq("album_id", album_id)
+    .eq("device_id", getDeviceId())
+    .maybeSingle();
+  if (existing.data) {
+    // 已订阅 → 取消
+    await sb.from("album_subscriptions").delete().eq("id", existing.data.id);
+    return { subscribed: false };
+  }
+  // 未订阅 → 添加
+  const { error } = await sb
+    .from("album_subscriptions")
+    .insert({ album_id, device_id: getDeviceId() });
+  if (error) throw new Error(error.message);
+  return { subscribed: true };
+}
+
+export async function listMySubscribedAlbums(): Promise<Album[]> {
+  const sb = createClient();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from("album_subscriptions")
+    .select("album_id, albums(*)")
+    .eq("device_id", getDeviceId())
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return (data as unknown as { albums: Album }[])
+    .map((r) => r.albums)
+    .filter(Boolean);
+}
+
+/* ---------- 8. Storage 上传（音频 / 封面） ---------- */
+
+/**
+ * 上传文件到指定 bucket,返回 public URL
+ * @param bucket "audio" | "covers" | 其它
+ * @param prefix bucket 内子目录(可选)
+ */
+export async function uploadFile(file: File, bucket = "audio", prefix = ""): Promise<string> {
+  const sb = createClient();
+  if (!sb) throw new Error("Supabase 未配置");
+  const ext = (file.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+  const rand = Math.random().toString(36).slice(2, 8);
+  const fileName = `${Date.now()}-${rand}.${ext}`;
+  const path = prefix ? `${prefix}/${fileName}` : fileName;
+  const { error } = await sb.storage.from(bucket).upload(path, file, {
+    contentType: file.type || "application/octet-stream",
+    upsert: false,
+  });
+  if (error) {
+    throw new Error(`上传失败: ${error.message} (path=${path})`);
+  }
+  const { data: pub } = sb.storage.from(bucket).getPublicUrl(path);
+  return pub.publicUrl;
 }

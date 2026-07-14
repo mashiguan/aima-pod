@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { EpisodeCard } from "@/components/EpisodeCard";
-import { listEpisodes, listTags } from "@/lib/api";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { listEpisodes, listTags, listAlbumsWithStats } from "@/lib/api";
+import Link from "next/link";
+import { Disc3, ArrowRight, Sparkles } from "lucide-react";
 
 // 实时拉取：后台发新节目后刷首页立刻能看到
 export const dynamic = "force-dynamic";
@@ -17,6 +17,11 @@ export default async function HomePage() {
   const latest = [...all]
     .sort((a, b) => +new Date(b.published_at) - +new Date(a.published_at))
     .slice(0, 4);
+  // 热门专辑 = 总播放数降序,8 个
+  const albums = (await listAlbumsWithStats())
+    .filter((a) => a.episode_count > 0)
+    .sort((a, b) => b.total_plays - a.total_plays)
+    .slice(0, 8);
   return (
     <>
       {/* Hero */}
@@ -91,6 +96,52 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* 热门专辑 */}
+      {albums.length > 0 && (
+        <section className="mx-auto max-w-7xl px-6 py-14">
+          <div className="mb-6 flex items-end justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-white">热门专辑</h2>
+              <p className="mt-1 text-sm text-white/50">按总播放数排序</p>
+            </div>
+            <Link
+              href="/albums"
+              className="inline-flex items-center gap-1 text-sm text-white/60 hover:text-violet-300"
+            >
+              全部专辑 <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {albums.map((a) => (
+              <Link
+                key={a.id}
+                href={`/album/${a.id}`}
+                className="group flex gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-3 transition hover:border-violet-400/40 hover:bg-white/5"
+              >
+                <div
+                  className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white"
+                  style={
+                    a.cover_url
+                      ? { backgroundImage: `url(${a.cover_url})`, backgroundSize: "cover", backgroundPosition: "center" }
+                      : undefined
+                  }
+                >
+                  {!a.cover_url && <Disc3 className="h-6 w-6" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-white group-hover:text-violet-200">
+                    {a.name}
+                  </p>
+                  <p className="truncate text-xs text-white/50">
+                    {a.episode_count} 期 · {a.total_plays} 收听
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }

@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { formatDuration } from "@/lib/mock-data";
-import { createEpisode, listMyEpisodes, listTags } from "@/lib/api";
+import { createEpisode, listMyEpisodes, listTags, listAlbums } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
-import { Episode, Tag } from "@/lib/types";
+import { Episode, Tag, Album } from "@/lib/types";
 import { Trash2, Music, FileAudio, ListMusic } from "lucide-react";
 
 interface FormState {
@@ -14,6 +14,7 @@ interface FormState {
   duration_sec: string; // 分钟
   genre: string; // 标签 value
   topic: string; // 标签 value
+  albumId: string; // 专辑 id,"" = 不选
   audioFile: File | null;
   audioFileName: string;
   coverFile: File | null;
@@ -28,6 +29,7 @@ const EMPTY_FORM: FormState = {
   duration_sec: "",
   genre: "",
   topic: "",
+  albumId: "",
   audioFile: null,
   audioFileName: "",
   coverFile: null,
@@ -118,6 +120,13 @@ export default function AdminPage() {
       setTagGenres(all.filter((t) => t.kind === "genre"));
       setTagTopics(all.filter((t) => t.kind === "topic"));
     });
+  }, [authed]);
+
+  // 加载后台专辑用于表单下拉
+  const [albums, setAlbums] = useState<Album[]>([]);
+  useEffect(() => {
+    if (!authed) return;
+    listAlbums().then(setAlbums);
   }, [authed]);
 
   const tryPwd = () => {
@@ -268,6 +277,7 @@ export default function AdminPage() {
         cover: cover_url,
         chapters: parseChapters(form.chaptersText),
         featured: false,
+        album_id: form.albumId || null,
       });
       setList([newEp, ...list]);
       showToast("✅ 上传成功，已发布");
@@ -437,6 +447,31 @@ export default function AdminPage() {
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* 专辑（可空） */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-white">
+              所属专辑
+              <span className="ml-2 text-xs text-white/40">（不选则不归入任何专辑）</span>
+            </label>
+            <select
+              value={form.albumId}
+              onChange={(e) => setForm({ ...form, albumId: e.target.value })}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-violet-400/60"
+            >
+              <option value="" className="bg-slate-900">— 不选 —</option>
+              {albums.map((a) => (
+                <option key={a.id} value={a.id} className="bg-slate-900">
+                  {a.name}
+                </option>
+              ))}
+            </select>
+            {albums.length === 0 && (
+              <p className="mt-1 text-xs text-white/40">
+                还没有专辑,去 <a href="/admin/albums" className="text-violet-300 underline">/admin/albums</a> 创建一个
+              </p>
+            )}
           </div>
 
           {/* 章节时间标签（单文本框：mm:ss 标题） */}

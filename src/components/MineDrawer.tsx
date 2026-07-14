@@ -2,17 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, Heart, ThumbsUp, ThumbsDown, Headphones, Library, ChevronRight } from "lucide-react";
+import { X, Heart, ThumbsUp, ThumbsDown, Headphones, Library, ChevronRight, Disc3 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getDeviceId } from "@/lib/supabase/device";
-import type { Episode } from "@/lib/types";
+import type { Episode, Album } from "@/lib/types";
 
-type Tab = "favorites" | "likes";
+type Tab = "favorites" | "likes" | "albums";
 
 export function MineDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("favorites");
   const [favorites, setFavorites] = useState<Episode[]>([]);
   const [likes, setLikes] = useState<Episode[]>([]);
+  const [subs, setSubs] = useState<Album[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -43,15 +44,24 @@ export function MineDrawer({ open, onClose }: { open: boolean; onClose: () => vo
       if (ids.length === 0) {
         setFavorites([]);
         setLikes([]);
-        setLoading(false);
-        return;
+      } else {
+        const { data: eps } = await sb.from("episodes").select("*").in("id", ids);
+        const list = (eps ?? []) as Episode[];
+        const favSet = new Set(favRows.map((r) => r.podcast_id));
+        const likeSet = new Set(likeRows.map((r) => r.podcast_id));
+        setFavorites(list.filter((e) => favSet.has(e.id)));
+        setLikes(list.filter((e) => likeSet.has(e.id)));
       }
-      const { data: eps } = await sb.from("episodes").select("*").in("id", ids);
-      const list = (eps ?? []) as Episode[];
-      const favSet = new Set(favRows.map((r) => r.podcast_id));
-      const likeSet = new Set(likeRows.map((r) => r.podcast_id));
-      setFavorites(list.filter((e) => favSet.has(e.id)));
-      setLikes(list.filter((e) => likeSet.has(e.id)));
+
+      // 订阅的专辑
+      const { data: subRows } = await sb
+        .from("album_subscriptions")
+        .select("album_id, albums(*)")
+        .eq("device_id", deviceId)
+        .order("created_at", { ascending: false });
+      const subList = (subRows ?? []) as unknown as { albums: Album | null }[];
+      setSubs(subList.map((r) => r.albums).filter((a): a is Album => !!a));
+
       setLoading(false);
     })();
   }, [open]);
@@ -104,6 +114,16 @@ export function MineDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             >
               <ThumbsUp className="mr-1 inline h-3.5 w-3.5" /> 赞过
             </button>
+            <button
+              onClick={() => setTab("albums")}
+              className={`-mb-px border-b-2 px-3 py-3 transition ${
+                tab === "albums"
+                  ? "border-violet-400 text-white"
+                  : "border-transparent text-white/60 hover:text-white"
+              }`}
+            >
+              <Disc3 className="mr-1 inline h-3.5 w-3.5" /> 专辑
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -123,6 +143,38 @@ export function MineDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                   去发现页逛逛 <ChevronRight className="h-3 w-3" />
                 </Link>
               </div>
+            ) : tab === "albums" ? (
+              <ul className="space-y-2">
+                {subs.length === 0 ? (
+                  <li className="py-8 text-center text-sm text-white/40">还没有订阅专辑</li>
+                ) : (
+                  subs.map((a) => (
+                    <li key={a.id}>
+                      <Link
+                        href={`/album/${a.id}`}
+                        onClick={onClose}
+                        className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] p-3 transition hover:border-violet-400/40 hover:bg-white/5"
+                      >
+                        <div
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-fuchsia-500 to-violet-600"
+                          style={
+                            a.cover_url
+                              ? { backgroundImage: `url(${a.cover_url})`, backgroundSize: "cover", backgroundPosition: "center" }
+                              : undefined
+                          }
+                        >
+                          {!a.cover_url && <Disc3 className="h-5 w-5 text-white" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-white">{a.name}</p>
+                          <p className="truncate text-xs text-white/50">{a.description || "（暂无介绍）"}</p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-white/30" />
+                      </Link>
+                    </li>
+                  ))
+                )}
+              </ul>
             ) : (
               <ul className="space-y-2">
                 {(tab === "favorites" ? favorites : likes).map((ep) => (

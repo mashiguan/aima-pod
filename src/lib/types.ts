@@ -19,6 +19,21 @@ export interface Tag {
   sort: number;
 }
 
+/** 专辑 */
+export interface Album {
+  id: string;
+  name: string;
+  description: string;
+  cover_url: string | null;
+  created_at: string;
+}
+
+/** 专辑 + 该专辑内作品总播放数（首页/列表用） */
+export interface AlbumWithStats extends Album {
+  episode_count: number;
+  total_plays: number;
+}
+
 export const INTERACTION_TYPES = ["like", "dislike", "favorite", "share"] as const;
 export type InteractionType = (typeof INTERACTION_TYPES)[number];
 
@@ -52,4 +67,5 @@ export interface Episode {
   chapters: Chapter[];
   published_at: string;
   featured: boolean;
+  album_id?: string | null; // 所属专辑,可空
 }

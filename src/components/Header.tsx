@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Home, Compass, User, Headphones } from "lucide-react";
+import { Home, Compass, User, Headphones, Disc3 } from "lucide-react";
 import { MineDrawer } from "./MineDrawer";
 
 export function Header() {
@@ -32,6 +32,12 @@ export function Header() {
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white/70 transition hover:bg-white/5 hover:text-white"
             >
               <Compass className="h-3.5 w-3.5" /> 发现
+            </Link>
+            <Link
+              href="/albums"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white/70 transition hover:bg-white/5 hover:text-white"
+            >
+              <Disc3 className="h-3.5 w-3.5" /> 专辑
             </Link>
             <button
               onClick={() => setMineOpen(true)}
