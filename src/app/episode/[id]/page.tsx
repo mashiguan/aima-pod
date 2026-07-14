@@ -9,7 +9,7 @@ import {
   TOPICS,
   coverGradient,
 } from "@/lib/mock-data";
-import { getEpisode, hasInteraction, recordInteraction, removeInteraction, recordPlay } from "@/lib/api";
+import { getEpisode, hasInteraction, recordInteraction, removeInteraction, recordPlay, getInteractionCounts } from "@/lib/api";
 import { Episode } from "@/lib/types";
 import {
   ArrowLeft,
@@ -43,6 +43,9 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
     getEpisode(id).then((data) => {
       if (alive) setEp(data);
     });
+    getInteractionCounts(id).then((c) => {
+      if (alive) setCounts(c);
+    });
     return () => {
       alive = false;
     };
@@ -55,6 +58,7 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
 
   const [vote, setVote] = useState<"like" | "dislike" | null>(null);
   const [fav, setFav] = useState(false);
+  const [counts, setCounts] = useState<{ like: number; dislike: number; favorite: number; share: number }>({ like: 0, dislike: 0, favorite: 0, share: 0 });
 
   const { push, list: toastList } = useToast();
 
@@ -111,6 +115,7 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
     } catch {}
   };
 
+  const playTrackedRef = useRef(false);
   const togglePlay = () => {
     const a = audioRef.current;
     if (!a) return;
@@ -120,6 +125,12 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
     } else {
       a.play().catch(() => {});
       setPlaying(true);
+      // 每次会话只计 1 次播放（避免在某个点反复点播放被刷高）
+      if (!playTrackedRef.current) {
+        playTrackedRef.current = true;
+        recordPlay(ep.id).catch(() => {});
+        setEp((cur) => (cur ? { ...cur, plays: (cur.plays || 0) + 1 } : cur));
+      }
     }
   };
 
@@ -151,9 +162,11 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
     persist({ vote: next });
     if (next) {
       recordInteraction(ep.id, "like").catch(() => {});
+      setCounts((c) => ({ ...c, like: c.like + 1 }));
       push("like");
     } else {
       removeInteraction(ep.id, "like").catch(() => {});
+      setCounts((c) => ({ ...c, like: Math.max(0, c.like - 1) }));
     }
   };
   const onDislike = () => {
@@ -162,9 +175,11 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
     persist({ vote: next });
     if (next) {
       recordInteraction(ep.id, "dislike").catch(() => {});
+      setCounts((c) => ({ ...c, dislike: c.dislike + 1 }));
       push("dislike");
     } else {
       removeInteraction(ep.id, "dislike").catch(() => {});
+      setCounts((c) => ({ ...c, dislike: Math.max(0, c.dislike - 1) }));
     }
   };
   const onFav = () => {
@@ -174,8 +189,10 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
     persist({ fav: next });
     if (next) {
       recordInteraction(ep.id, "favorite").catch(() => {});
+      setCounts((c) => ({ ...c, favorite: c.favorite + 1 }));
     } else {
       removeInteraction(ep.id, "favorite").catch(() => {});
+      setCounts((c) => ({ ...c, favorite: Math.max(0, c.favorite - 1) }));
     }
     push(next ? "fav-on" : "fav-off");
   };
@@ -185,6 +202,7 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
       await navigator.clipboard.writeText(url);
     } catch {}
     recordInteraction(ep.id, "share").catch(() => {});
+    setCounts((c) => ({ ...c, share: c.share + 1 }));
     push("share");
   };
 
@@ -310,7 +328,7 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
                   : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10"
               }`}
             >
-              <ThumbsUp className={`h-4 w-4 ${vote === "like" ? "fill-emerald-300" : ""}`} /> 点赞
+              <ThumbsUp className={`h-4 w-4 ${vote === "like" ? "fill-emerald-300" : ""}`} /> 点赞 <span className="tabular-nums text-xs opacity-70">{counts.like}</span>
             </button>
             <button
               onClick={onDislike}
@@ -321,7 +339,7 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
                   : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10"
               }`}
             >
-              <ThumbsDown className={`h-4 w-4 ${vote === "dislike" ? "fill-rose-300" : ""}`} /> 点踩
+              <ThumbsDown className={`h-4 w-4 ${vote === "dislike" ? "fill-rose-300" : ""}`} /> 点踩 <span className="tabular-nums text-xs opacity-70">{counts.dislike}</span>
             </button>
             <button
               onClick={onFav}
@@ -335,14 +353,14 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
               <span key={favAnimKey} className={fav ? "animate-fav-pop inline-flex" : "inline-flex"}>
                 <Star className={`h-4 w-4 ${fav ? "fill-amber-300" : ""}`} />
               </span>
-              {fav ? "已收藏" : "收藏"}
+              {fav ? "已收藏" : "收藏"} <span className="tabular-nums text-xs opacity-70">{counts.favorite}</span>
             </button>
             <button
               onClick={onShare}
               aria-label="转发复制链接"
               className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-4 py-1.5 text-sm text-white/70 ring-1 ring-inset ring-white/10 transition active:scale-95 hover:bg-white/10"
             >
-              <Share2 className="h-4 w-4" /> 转发
+              <Share2 className="h-4 w-4" /> 转发 <span className="tabular-nums text-xs opacity-70">{counts.share}</span>
             </button>
           </div>
         </div>

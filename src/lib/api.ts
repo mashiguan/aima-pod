@@ -93,7 +93,10 @@ export async function createEpisode(input: NewEpisodeInput): Promise<Episode> {
     plays: 0,
     published_at: ep.published_at,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("[createEpisode] supabase error:", error);
+    throw new Error(`episodes 写入失败：${error.message}（code=${error.code}，hint=${error.hint}）`);
+  }
   return ep;
 }
 

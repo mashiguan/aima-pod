@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { GENRES, TOPICS, formatDuration } from "@/lib/mock-data";
 import { createEpisode, listMyEpisodes } from "@/lib/api";
+import { createClient } from "@/lib/supabase/client";
 import { Episode, Genre, Topic } from "@/lib/types";
 import { Plus, Trash2, Music, FileAudio, ListMusic } from "lucide-react";
 
@@ -15,6 +16,8 @@ interface FormState {
   topic: Topic;
   audioFile: File | null;
   audioFileName: string;
+  coverFile: File | null;
+  coverFileName: string;
   chapters: { t: string; label: string }[];
 }
 
@@ -27,6 +30,8 @@ const EMPTY_FORM: FormState = {
   topic: "历史",
   audioFile: null,
   audioFileName: "",
+  coverFile: null,
+  coverFileName: "",
   chapters: [{ t: "0", label: "开场" }],
 };
 
@@ -37,6 +42,7 @@ export default function AdminPage() {
   const [authed, setAuthed] = useState<boolean | null>(null); // null=未确认, true=已通过
   const [pwd, setPwd] = useState("");
   const [pwdError, setPwdError] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   // 检查是否已通过（localStorage 持久化）
   useEffect(() => {
@@ -96,6 +102,7 @@ export default function AdminPage() {
     );
   }
 
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 1800);
@@ -120,10 +127,57 @@ export default function AdminPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim()) return showToast("请先填标题");
-    if (!form.audioFileName && !form.audioFile) return showToast("请选择 MP3 文件");
-    const minutes = parseFloat(form.duration_sec);
-    const duration_sec = isNaN(minutes) ? 0 : Math.round(minutes * 60);
+    if (!form.audioFile) return showToast("请选择音频文件");
+
+    setUploading(true);
     try {
+      // 1) 先把音频文件上传到 Supabase Storage（audio bucket，public）
+      let audio_url = "";
+      let cover_url: string | null = null;
+      const supa = createClient();
+      if (supa) {
+        // 用更安全的路径：纯英文+时间戳+随机后缀，完全避免中文/特殊字符
+        const ext = (form.audioFile.name.split(".").pop() || "mp3").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp3";
+        const rand = Math.random().toString(36).slice(2, 8);
+        const path = `episodes/${Date.now()}-${rand}.${ext}`;
+        const { error: upErr } = await supa.storage
+          .from("audio")
+          .upload(path, form.audioFile, {
+            contentType: form.audioFile.type || "audio/mpeg",
+            upsert: false,
+          });
+        if (upErr) {
+          console.error("[storage.upload] error:", upErr, "path:", path, "file:", form.audioFile.name, "type:", form.audioFile.type, "size:", form.audioFile.size);
+          throw new Error("音频上传失败：" + upErr.message + " (path=" + path + ")");
+        }
+        const { data: pub } = supa.storage.from("audio").getPublicUrl(path);
+        audio_url = pub.publicUrl;
+
+        // 1b) 如果有封面，上传到 covers bucket
+        if (form.coverFile) {
+          const cExt = (form.coverFile.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+          const cRand = Math.random().toString(36).slice(2, 8);
+          const cPath = `covers/${Date.now()}-${cRand}.${cExt}`;
+          const { error: cErr } = await supa.storage
+            .from("covers")
+            .upload(cPath, form.coverFile, {
+              contentType: form.coverFile.type || "image/jpeg",
+              upsert: false,
+            });
+          if (cErr) {
+            console.error("[cover.upload] error:", cErr, "path:", cPath);
+            throw new Error("封面上传失败：" + cErr.message + " (path=" + cPath + ")");
+          }
+          const { data: cPub } = supa.storage.from("covers").getPublicUrl(cPath);
+          cover_url = cPub.publicUrl;
+        }
+      } else {
+        audio_url = URL.createObjectURL(form.audioFile);
+      }
+
+      const minutes = parseFloat(form.duration_sec);
+      const duration_sec = isNaN(minutes) ? 0 : Math.round(minutes * 60);
+
       const newEp = await createEpisode({
         title: form.title.trim(),
         description: form.description.trim() || "（暂无描述）",
@@ -131,18 +185,20 @@ export default function AdminPage() {
         duration_sec,
         genre: form.genre,
         topic: form.topic,
-        audio_url: form.audioFile ? URL.createObjectURL(form.audioFile) : "",
-        cover: null,
+        audio_url,
+        cover: cover_url,
         chapters: form.chapters
           .filter((c) => c.label.trim())
           .map((c) => ({ t: parseInt(c.t || "0", 10), label: c.label.trim() })),
         featured: false,
       });
       setList([newEp, ...list]);
-      showToast("已保存到本地（如有 .env 也会同步 Supabase）");
+      showToast("✅ 上传成功，已发布");
       setForm({ ...EMPTY_FORM, author: form.author });
     } catch (err: any) {
-      showToast("保存失败：" + (err?.message || "未知错误"));
+      showToast("保存失败：" + (err?.message || JSON.stringify(err) || "未知错误"));
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -158,7 +214,7 @@ export default function AdminPage() {
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-white">后台</h1>
         <p className="mt-2 text-sm text-white/60">
-          上传 MP3、填元数据、加章节时间标签。当前是 mock 模式（数据存浏览器 localStorage）。
+          上传 MP3 到 Supabase Storage、填元数据、加章节时间标签。文件会真存到云端，可永久播放。
         </p>
       </header>
 
@@ -177,7 +233,7 @@ export default function AdminPage() {
                 {form.audioFileName ? (
                   <span className="text-white">{form.audioFileName}</span>
                 ) : (
-                  <span className="text-white/50">点击选择 MP3（mock 模式仅取文件名）</span>
+                  <span className="text-white/50">点击选择 MP3 / M4A / WAV（最大 50MB）</span>
                 )}
               </div>
               <span className="rounded-full bg-violet-500/20 px-3 py-1 text-xs text-violet-200 ring-1 ring-violet-400/40">
@@ -188,6 +244,36 @@ export default function AdminPage() {
                 accept="audio/mpeg,audio/mp3,audio/*"
                 className="hidden"
                 onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+          </div>
+
+          {/* 封面选择（可选） */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-white">封面图 <span className="text-white/40">（可选）</span></label>
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-white/20 bg-white/5 px-4 py-4 transition hover:border-violet-400/60 hover:bg-white/10">
+              {form.coverFileName ? (
+                <span className="text-sm text-white">{form.coverFileName}</span>
+              ) : (
+                <>
+                  <span className="text-sm text-white/50">点击选择 JPG / PNG（最大 5MB，留空用渐变）</span>
+                </>
+              )}
+              <span className="ml-auto rounded-full bg-violet-500/20 px-3 py-1 text-xs text-violet-200 ring-1 ring-violet-400/40">
+                选择
+              </span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  if (f && f.size > 5 * 1024 * 1024) {
+                    showToast("封面太大，限制 5MB");
+                    return;
+                  }
+                  setForm((s) => ({ ...s, coverFile: f, coverFileName: f ? f.name : "" }));
+                }}
               />
             </label>
           </div>
@@ -317,9 +403,10 @@ export default function AdminPage() {
           <div className="flex items-center gap-3 border-t border-white/5 pt-4">
             <button
               type="submit"
-              className="rounded-full bg-violet-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-violet-400"
+              disabled={uploading}
+              className="rounded-full bg-violet-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              保存
+              {uploading ? "上传中…" : "保存"}
             </button>
             <button
               type="button"

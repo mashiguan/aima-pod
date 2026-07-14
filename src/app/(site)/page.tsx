@@ -3,9 +3,15 @@ import { EpisodeCard } from "@/components/EpisodeCard";
 import { listEpisodes } from "@/lib/api";
 import { ArrowRight, Sparkles } from "lucide-react";
 
+// 实时拉取：后台发新节目后刷首页立刻能看到
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function HomePage() {
   const all = await listEpisodes();
+  // 热门 = featured 里取 4 个
   const featured = all.filter((e) => e.featured).slice(0, 4);
+  // 最新 = 所有节目按发布时间排，跳过已在热门里的，取 4 个
   const featuredIds = new Set(featured.map((e) => e.id));
   const latest = all
     .filter((e) => !featuredIds.has(e.id))
