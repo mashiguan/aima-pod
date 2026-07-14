@@ -100,7 +100,8 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
   const genre = GENRES.find((g) => g.value === ep.genre);
   const topic = TOPICS.find((t) => t.value === ep.topic);
   const gradient = coverGradient(ep.id);
-  const pct = Math.min(100, (currentTime / ep.duration_sec) * 100);
+  const dur = Number(ep.duration_sec) || 0;
+  const pct = dur > 0 ? Math.min(100, (currentTime / dur) * 100) : 0;
 
   // 持久化"已选状态"到 localStorage。key 内含 device_id，所以多端不会互踩。
   // 注意：next.vote / next.fav 是"目标最终值"，可能为 null/false（取消）。
@@ -136,7 +137,7 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
 
   const seekTo = (sec: number) => {
     const a = audioRef.current;
-    const s = Math.max(0, Math.min(ep.duration_sec, sec));
+    const s = Math.max(0, Math.min(dur, sec));
     if (a) {
       a.currentTime = s;
       setCurrentTime(s);
@@ -294,7 +295,7 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
               <input
                 type="range"
                 min={0}
-                max={ep.duration_sec}
+                max={Math.max(1, dur)}
                 value={Math.floor(currentTime)}
                 step={1}
                 onChange={(e) => seekTo(Number(e.target.value))}

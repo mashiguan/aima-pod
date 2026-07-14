@@ -39,7 +39,16 @@ export function EpisodeCard({ ep }: { ep: Episode }) {
       <div
         className={`relative aspect-square w-full overflow-hidden bg-gradient-to-br ${gradient}`}
       >
-        {/* 大字水印 */}
+        {ep.cover_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={ep.cover_url}
+            alt={ep.title}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+        {/* 大字水印（无封面时才显示） */}
+        {!ep.cover_url && (
         <div
           aria-hidden
           className="pointer-events-none absolute -right-2 -top-2 select-none text-[140px] font-black leading-none text-white/20 transition group-hover:text-white/30"
@@ -47,6 +56,7 @@ export function EpisodeCard({ ep }: { ep: Episode }) {
         >
           {glyph}
         </div>
+        )}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/15 backdrop-blur transition duration-300 group-hover:scale-110 group-hover:bg-white/30">
             <Play className="h-7 w-7 fill-white text-white" />
