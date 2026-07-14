@@ -210,8 +210,15 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
     try {
       await navigator.clipboard.writeText(url);
     } catch {}
-    // share 是动作不是状态:不递增计数，不后端记录(只复制链接 + 弹 toast)
-    // 刷新归位是因为后端 onConflict:ignore 去重但前端 state 一直 +
+    // share 去重：同 device 同 ep 只计 1 条。
+    // 先查 hasInteraction；没记录过才 +1,后端 insert (ignoreDuplicates 兑底)。
+    hasInteraction(ep.id, "share")
+      .then((exists) => {
+        if (exists) return;
+        recordInteraction(ep.id, "share").catch(() => {});
+        setCounts((c) => ({ ...c, share: c.share + 1 }));
+      })
+      .catch(() => {});
     push("share");
   };
 

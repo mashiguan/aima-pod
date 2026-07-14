@@ -9,8 +9,8 @@ export const revalidate = 0;
 
 export default async function HomePage() {
   const all = await listEpisodes();
-  // 热门 = featured 里取 4 个
-  const featured = all.filter((e) => e.featured).slice(0, 4);
+  // 热门 = 按 plays 降序取前 4（刚上传 plays=0 也能进，因为只有少数）
+  const featured = [...all].sort((a, b) => (b.plays || 0) - (a.plays || 0)).slice(0, 4);
   // 最新 = 所有节目按发布时间排，跳过已在热门里的，取 4 个
   const featuredIds = new Set(featured.map((e) => e.id));
   const latest = all
