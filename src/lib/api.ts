@@ -67,6 +67,7 @@ export async function createEpisode(input: NewEpisodeInput): Promise<Episode> {
     plays: 0,
     published_at: new Date().toISOString(),
   };
+  const createdBy = typeof window !== "undefined" ? getDeviceId() : null;
 
   if (!sb) {
     // mock 模式：写 localStorage，刷新前有效
@@ -95,12 +96,31 @@ export async function createEpisode(input: NewEpisodeInput): Promise<Episode> {
     plays: 0,
     published_at: ep.published_at,
     album_id: ep.album_id ?? null,
+    created_by: createdBy,
   });
   if (error) {
     console.error("[createEpisode] supabase error:", error);
     throw new Error(`episodes 写入失败：${error.message}（code=${error.code}，hint=${error.hint}）`);
   }
   return ep;
+}
+
+export async function updateEpisode(id: string, patch: Partial<NewEpisodeInput>): Promise<void> {
+  const sb = createClient();
+  if (!sb) throw new Error("Supabase 未配置");
+  const clean: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (v !== undefined) clean[k] = v;
+  }
+  const { error } = await sb.from("episodes").update(clean).eq("id", id);
+  if (error) throw new Error(`episodes 更新失败：${error.message}`);
+}
+
+export async function deleteEpisode(id: string): Promise<void> {
+  const sb = createClient();
+  if (!sb) throw new Error("Supabase 未配置");
+  const { error } = await sb.from("episodes").delete().eq("id", id);
+  if (error) throw new Error(`episodes 删除失败：${error.message}`);
 }
 
 export async function listMyEpisodes(): Promise<Episode[]> {

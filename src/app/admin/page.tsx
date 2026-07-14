@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { formatDuration } from "@/lib/mock-data";
-import { createEpisode, listMyEpisodes, listTags, listAlbums } from "@/lib/api";
+import { createEpisode, updateEpisode, deleteEpisode, listMyEpisodes, listTags, listAlbums } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 import { Episode, Tag, Album } from "@/lib/types";
-import { Trash2, Music, FileAudio, ListMusic } from "lucide-react";
+import { Trash2, Music, FileAudio, ListMusic, Pencil, Tags, Disc3 } from "lucide-react";
+import Link from "next/link";
 
 interface FormState {
   title: string;
@@ -98,6 +99,8 @@ export default function AdminPage() {
   const [pwd, setPwd] = useState("");
   const [pwdError, setPwdError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null); // 非空=编辑模式
+  const [editOriginal, setEditOriginal] = useState<Episode | null>(null); // 记住原音频/封面 URL
 
   // 检查是否已通过（localStorage 持久化）
   useEffect(() => {
@@ -215,33 +218,32 @@ export default function AdminPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim()) return showToast("请先填标题");
-    if (!form.audioFile) return showToast("请选择音频文件");
+    if (!editingId && !form.audioFile) return showToast("请选择音频文件");
 
     setUploading(true);
     try {
-      // 1) 先把音频文件上传到 Supabase Storage（audio bucket，public）
-      let audio_url = "";
-      let cover_url: string | null = null;
+      // 1) 音频 / 封面文件
+      let audio_url = editOriginal?.audio_url ?? "";
+      let cover_url: string | null = editOriginal?.cover ?? null;
       const supa = createClient();
       if (supa) {
-        // 用更安全的路径：纯英文+时间戳+随机后缀，完全避免中文/特殊字符
-        const ext = (form.audioFile.name.split(".").pop() || "mp3").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp3";
-        const rand = Math.random().toString(36).slice(2, 8);
-        const path = `episodes/${Date.now()}-${rand}.${ext}`;
-        const { error: upErr } = await supa.storage
-          .from("audio")
-          .upload(path, form.audioFile, {
-            contentType: form.audioFile.type || "audio/mpeg",
-            upsert: false,
-          });
-        if (upErr) {
-          console.error("[storage.upload] error:", upErr, "path:", path, "file:", form.audioFile.name, "type:", form.audioFile.type, "size:", form.audioFile.size);
-          throw new Error("音频上传失败：" + upErr.message + " (path=" + path + ")");
+        if (form.audioFile) {
+          const ext = (form.audioFile.name.split(".").pop() || "mp3").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp3";
+          const rand = Math.random().toString(36).slice(2, 8);
+          const path = `episodes/${Date.now()}-${rand}.${ext}`;
+          const { error: upErr } = await supa.storage
+            .from("audio")
+            .upload(path, form.audioFile, {
+              contentType: form.audioFile.type || "audio/mpeg",
+              upsert: false,
+            });
+          if (upErr) {
+            console.error("[storage.upload] error:", upErr, "path:", path);
+            throw new Error("音频上传失败：" + upErr.message + " (path=" + path + ")");
+          }
+          const { data: pub } = supa.storage.from("audio").getPublicUrl(path);
+          audio_url = pub.publicUrl;
         }
-        const { data: pub } = supa.storage.from("audio").getPublicUrl(path);
-        audio_url = pub.publicUrl;
-
-        // 1b) 如果有封面，上传到 covers bucket
         if (form.coverFile) {
           const cExt = (form.coverFile.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
           const cRand = Math.random().toString(36).slice(2, 8);
@@ -259,14 +261,14 @@ export default function AdminPage() {
           const { data: cPub } = supa.storage.from("covers").getPublicUrl(cPath);
           cover_url = cPub.publicUrl;
         }
-      } else {
+      } else if (form.audioFile) {
         audio_url = URL.createObjectURL(form.audioFile);
       }
 
       const minutes = parseFloat(form.duration_sec);
       const duration_sec = isNaN(minutes) ? 0 : Math.round(minutes * 60);
 
-      const newEp = await createEpisode({
+      const baseInput = {
         title: form.title.trim(),
         description: form.description.trim() || "（暂无描述）",
         author: form.author.trim() || "小马歌",
@@ -276,12 +278,38 @@ export default function AdminPage() {
         audio_url,
         cover: cover_url,
         chapters: parseChapters(form.chaptersText),
-        featured: false,
+        featured: editOriginal?.featured ?? false,
         album_id: form.albumId || null,
-      });
-      setList([newEp, ...list]);
-      showToast("✅ 上传成功，已发布");
-      setForm({ ...EMPTY_FORM, author: form.author });
+      };
+
+      if (editingId) {
+        await updateEpisode(editingId, baseInput);
+        // 列表里同步更新
+        const updated: Episode = {
+          ...editOriginal!,
+          title: baseInput.title,
+          description: baseInput.description,
+          author: baseInput.author,
+          duration_sec: baseInput.duration_sec,
+          genre: baseInput.genre,
+          topic: baseInput.topic,
+          audio_url: baseInput.audio_url,
+          cover: baseInput.cover,
+          cover_url: baseInput.cover,
+          chapters: baseInput.chapters,
+          album_id: baseInput.album_id,
+        };
+        setList([updated, ...list.filter((e) => e.id !== editingId)]);
+        showToast("✅ 已保存修改");
+        setEditingId(null);
+        setEditOriginal(null);
+        setForm({ ...EMPTY_FORM, author: form.author });
+      } else {
+        const newEp = await createEpisode(baseInput);
+        setList([newEp, ...list]);
+        showToast("✅ 上传成功，已发布");
+        setForm({ ...EMPTY_FORM, author: form.author });
+      }
     } catch (err: any) {
       showToast("保存失败：" + (err?.message || JSON.stringify(err) || "未知错误"));
     } finally {
@@ -289,20 +317,77 @@ export default function AdminPage() {
     }
   };
 
-  const onDelete = (id: string) => {
-    if (!confirm("确认删除这条节目？")) return;
-    const next = list.filter((e) => e.id !== id);
-    setList(next);
-    // TODO: 接 supabase 后调用 delete
+  // 点列表中作品的"编辑"：填进表单
+  const onEdit = (ep: Episode) => {
+    const minutes = (ep.duration_sec / 60).toFixed(1);
+    const chaptersText = ep.chapters
+      .map((c) => {
+        const m = Math.floor(c.t / 60);
+        const s = String(c.t % 60).padStart(2, "0");
+        return `${String(m).padStart(2, "0")}:${s}  ${c.label}`;
+      })
+      .join("\n");
+    setForm({
+      title: ep.title,
+      description: ep.description,
+      author: ep.author,
+      duration_sec: minutes,
+      genre: ep.genre,
+      topic: ep.topic,
+      albumId: ep.album_id ?? "",
+      audioFile: null,
+      audioFileName: "（不修改）",
+      coverFile: null,
+      coverFileName: "（不修改）",
+      chaptersText,
+    });
+    setEditingId(ep.id);
+    setEditOriginal(ep);
+    // 滚到顶部
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // 取消编辑
+  const onCancelEdit = () => {
+    setEditingId(null);
+    setEditOriginal(null);
+    setForm({ ...EMPTY_FORM, author: form.author });
+  };
+
+  const onDelete = async (id: string) => {
+    if (!confirm("确认删除这条节目？此操作不可恢复")) return;
+    try {
+      await deleteEpisode(id);
+      setList(list.filter((e) => e.id !== id));
+      showToast("已删除");
+    } catch (err: any) {
+      showToast("删除失败：" + (err?.message || "未知错误"));
+    }
   };
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-white">后台</h1>
-        <p className="mt-2 text-sm text-white/60">
-          上传 MP3 到 Supabase Storage、填元数据、加章节时间标签。文件会真存到云端，可永久播放。
-        </p>
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white">后台</h1>
+          <p className="mt-2 text-sm text-white/60">
+            上传 MP3 到 Supabase Storage、填元数据、加章节时间标签。文件会真存到云端，可永久播放。
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/tags"
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:border-violet-400 hover:bg-violet-500/15 hover:text-violet-200"
+          >
+            <Tags className="h-3.5 w-3.5" /> 标签管理
+          </Link>
+          <Link
+            href="/admin/albums"
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:border-violet-400 hover:bg-violet-500/15 hover:text-violet-200"
+          >
+            <Disc3 className="h-3.5 w-3.5" /> 专辑管理
+          </Link>
+        </div>
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
@@ -495,15 +580,20 @@ export default function AdminPage() {
               disabled={uploading}
               className="rounded-full bg-violet-500 px-5 py-2 text-sm font-medium text-white transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {uploading ? "上传中…" : "保存"}
+              {uploading ? "保存中…" : editingId ? "保存修改" : "保存"}
             </button>
             <button
               type="button"
-              onClick={() => setForm(EMPTY_FORM)}
+              onClick={editingId ? onCancelEdit : () => setForm(EMPTY_FORM)}
               className="rounded-full bg-white/5 px-5 py-2 text-sm text-white/70 ring-1 ring-inset ring-white/10 hover:bg-white/10"
             >
-              重置
+              {editingId ? "取消编辑" : "重置"}
             </button>
+            {editingId && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs text-amber-200">
+                ✏️ 正在编辑《{editOriginal?.title}》
+              </span>
+            )}
             {toast && (
               <span className="text-sm text-emerald-300">{toast}</span>
             )}
@@ -532,13 +622,24 @@ export default function AdminPage() {
                           {ep.genre} · {ep.topic} · {formatDuration(ep.duration_sec)}
                         </p>
                       </div>
-                      <button
-                        onClick={() => onDelete(ep.id)}
-                        className="rounded p-1 text-white/40 hover:bg-rose-500/10 hover:text-rose-300"
-                        aria-label="删除"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex shrink-0">
+                        <button
+                          onClick={() => onEdit(ep)}
+                          className="rounded p-1 text-white/40 hover:bg-violet-500/15 hover:text-violet-200"
+                          aria-label="编辑"
+                          title="编辑"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => onDelete(ep.id)}
+                          className="rounded p-1 text-white/40 hover:bg-rose-500/10 hover:text-rose-300"
+                          aria-label="删除"
+                          title="删除"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </li>
                 ))}
