@@ -52,6 +52,7 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
   }, [id]);
 
   const audioRef = useRef<HTMLAudioElement>(null);
+  const playTrackedRef = useRef(false); // 必须放在 early return 之前
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [favAnimKey, setFavAnimKey] = useState(0); // 触发星星弹动画
@@ -116,7 +117,6 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
     } catch {}
   };
 
-  const playTrackedRef = useRef(false);
   const togglePlay = () => {
     const a = audioRef.current;
     if (!a) return;
