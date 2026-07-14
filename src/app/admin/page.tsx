@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GENRES, TOPICS, formatDuration } from "@/lib/mock-data";
-import { createEpisode, listMyEpisodes } from "@/lib/api";
+import { formatDuration } from "@/lib/mock-data";
+import { createEpisode, listMyEpisodes, listTags } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
-import { Episode, Genre, Topic } from "@/lib/types";
+import { Episode, Tag } from "@/lib/types";
 import { Trash2, Music, FileAudio, ListMusic } from "lucide-react";
 
 interface FormState {
@@ -12,8 +12,8 @@ interface FormState {
   description: string;
   author: string;
   duration_sec: string; // 分钟
-  genre: Genre;
-  topic: Topic;
+  genre: string; // 标签 value
+  topic: string; // 标签 value
   audioFile: File | null;
   audioFileName: string;
   coverFile: File | null;
@@ -26,8 +26,8 @@ const EMPTY_FORM: FormState = {
   description: "",
   author: "小马歌",
   duration_sec: "",
-  genre: "故事",
-  topic: "历史",
+  genre: "",
+  topic: "",
   audioFile: null,
   audioFileName: "",
   coverFile: null,
@@ -107,6 +107,17 @@ export default function AdminPage() {
   useEffect(() => {
     if (!authed) return;
     listMyEpisodes().then(setList).catch(() => setList([]));
+  }, [authed]);
+
+  // 加载后台标签（体裁 / 主题）用于表单下拉
+  const [tagGenres, setTagGenres] = useState<Tag[]>([]);
+  const [tagTopics, setTagTopics] = useState<Tag[]>([]);
+  useEffect(() => {
+    if (!authed) return;
+    listTags().then((all) => {
+      setTagGenres(all.filter((t) => t.kind === "genre"));
+      setTagTopics(all.filter((t) => t.kind === "topic"));
+    });
   }, [authed]);
 
   const tryPwd = () => {
@@ -396,11 +407,14 @@ export default function AdminPage() {
               <label className="mb-2 block text-sm font-medium text-white">体裁</label>
               <select
                 value={form.genre}
-                onChange={(e) => setForm({ ...form, genre: e.target.value as Genre })}
+                onChange={(e) => setForm({ ...form, genre: e.target.value })}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-violet-400/60"
               >
-                {GENRES.map((g) => (
-                  <option key={g.value} value={g.value} className="bg-slate-900">
+                <option value="" className="bg-slate-900" disabled>
+                  {tagGenres.length === 0 ? "加载中…" : "请选择"}
+                </option>
+                {tagGenres.map((g) => (
+                  <option key={g.id} value={g.value} className="bg-slate-900">
                     {g.label}
                   </option>
                 ))}
@@ -410,11 +424,14 @@ export default function AdminPage() {
               <label className="mb-2 block text-sm font-medium text-white">主题</label>
               <select
                 value={form.topic}
-                onChange={(e) => setForm({ ...form, topic: e.target.value as Topic })}
+                onChange={(e) => setForm({ ...form, topic: e.target.value })}
                 className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none focus:border-violet-400/60"
               >
-                {TOPICS.map((t) => (
-                  <option key={t.value} value={t.value} className="bg-slate-900">
+                <option value="" className="bg-slate-900" disabled>
+                  {tagTopics.length === 0 ? "加载中…" : "请选择"}
+                </option>
+                {tagTopics.map((t) => (
+                  <option key={t.id} value={t.value} className="bg-slate-900">
                     {t.label}
                   </option>
                 ))}

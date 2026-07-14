@@ -47,8 +47,8 @@ export interface Episode {
   audio_url: string;
   duration_sec: number;
   plays: number;
-  genre: Genre;
-  topic: Topic;
+  genre: string; // 标签 value（对应 tags.value）
+  topic: string; // 标签 value（对应 tags.value）
   chapters: Chapter[];
   published_at: string;
   featured: boolean;

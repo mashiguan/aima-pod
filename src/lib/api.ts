@@ -50,8 +50,8 @@ export interface NewEpisodeInput {
   description: string;
   author: string;
   duration_sec: number;
-  genre: Episode["genre"];
-  topic: Episode["topic"];
+  genre: string;
+  topic: string;
   audio_url: string;
   cover: string | null;
   chapters: { t: number; label: string }[];
