@@ -37,20 +37,46 @@ const EMPTY_FORM: FormState = {
 
 // 解析 mm:ss 章节文本 → chapters
 function parseChapters(text: string): { t: number; label: string }[] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      // 允许多种分隔符：2个空格、1个空格、Tab
-      const m = line.match(/^(\d{1,2}):(\d{1,2})\s+(.+)$/);
-      if (!m) return null;
-      const min = parseInt(m[1], 10);
-      const sec = parseInt(m[2], 10);
-      if (isNaN(min) || isNaN(sec) || sec >= 60) return null;
-      return { t: min * 60 + sec, label: m[3].trim() };
-    })
-    .filter((x): x is { t: number; label: string } => x !== null);
+  // 支持两种格式：
+  //  1) 单行：mm:ss + 任意空白 + 章节名     e.g. "00:00  开场"
+  //  2) 两行：mm:ss 一行，标题下一行        e.g. "00:06\n电梯场景..."
+  //      (中间可空行、任意行数间隔)
+  const lines = text.split(/\r?\n/);
+  const out: { t: number; label: string }[] = [];
+  const timeRe = /^(\d{1,2}):(\d{1,2})$/;
+  const lineRe = /^(\d{1,2}):(\d{1,2})\s+(.+)$/;
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trim();
+    if (!line) continue;
+    // 优先尝试单行格式
+    const single = line.match(lineRe);
+    if (single) {
+      const min = parseInt(single[1], 10);
+      const sec = parseInt(single[2], 10);
+      if (!isNaN(min) && !isNaN(sec) && sec < 60) {
+        out.push({ t: min * 60 + sec, label: single[3].trim() });
+      }
+      continue;
+    }
+    // 尝试两行格式：当前是时间，下一行非空就是标题
+    const time = line.match(timeRe);
+    if (time) {
+      // 往后找第一个非空行作为标题
+      for (let j = i + 1; j < lines.length; j++) {
+        const next = lines[j].trim();
+        if (!next) continue;
+        const min = parseInt(time[1], 10);
+        const sec = parseInt(time[2], 10);
+        if (!isNaN(min) && !isNaN(sec) && sec < 60) {
+          out.push({ t: min * 60 + sec, label: next });
+          i = j; // 跳过已消费的标题行
+        }
+        break;
+      }
+    }
+  }
+  return out;
 }
 
 // 从文件名提取合理标题：去后缀、_/- 换空格、去掉首尾空白
@@ -407,7 +433,7 @@ export default function AdminPage() {
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-sm text-white placeholder-white/30 outline-none focus:border-violet-400/60"
             />
             <p className="mt-1 text-xs text-white/40">
-              一行一个，格式 <span className="font-mono">mm:ss  章节名</span>（中间 2 个空格）。解析后 {parseChapters(form.chaptersText).length} 条。
+              一行一个，格式 <span className="font-mono">mm:ss  章节名</span>（中间 2 个空格）。<br />也支持两行格式：<span className="font-mono">mm:ss</span> 一行、章节名下一行。解析后 {parseChapters(form.chaptersText).length} 条。
             </p>
           </div>
 
