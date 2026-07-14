@@ -5,7 +5,7 @@ import { GENRES, TOPICS, formatDuration } from "@/lib/mock-data";
 import { createEpisode, listMyEpisodes } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 import { Episode, Genre, Topic } from "@/lib/types";
-import { Plus, Trash2, Music, FileAudio, ListMusic } from "lucide-react";
+import { Trash2, Music, FileAudio, ListMusic } from "lucide-react";
 
 interface FormState {
   title: string;
@@ -18,7 +18,7 @@ interface FormState {
   audioFileName: string;
   coverFile: File | null;
   coverFileName: string;
-  chapters: { t: string; label: string }[];
+  chaptersText: string; // 一行一个：mm:ss 章节名
 }
 
 const EMPTY_FORM: FormState = {
@@ -32,8 +32,35 @@ const EMPTY_FORM: FormState = {
   audioFileName: "",
   coverFile: null,
   coverFileName: "",
-  chapters: [{ t: "0", label: "开场" }],
+  chaptersText: "00:00  开场",
 };
+
+// 解析 mm:ss 章节文本 → chapters
+function parseChapters(text: string): { t: number; label: string }[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      // 允许多种分隔符：2个空格、1个空格、Tab
+      const m = line.match(/^(\d{1,2}):(\d{1,2})\s+(.+)$/);
+      if (!m) return null;
+      const min = parseInt(m[1], 10);
+      const sec = parseInt(m[2], 10);
+      if (isNaN(min) || isNaN(sec) || sec >= 60) return null;
+      return { t: min * 60 + sec, label: m[3].trim() };
+    })
+    .filter((x): x is { t: number; label: string } => x !== null);
+}
+
+// 从文件名提取合理标题：去后缀、_/- 换空格、去掉首尾空白
+function guessTitleFromFileName(name: string): string {
+  return name
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export default function AdminPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -109,19 +136,34 @@ export default function AdminPage() {
   };
 
   const onPickFile = (f: File | null) => {
-    setForm((s) => ({ ...s, audioFile: f, audioFileName: f ? f.name : "" }));
-  };
-
-  const addChapter = () =>
-    setForm((s) => ({ ...s, chapters: [...s.chapters, { t: "", label: "" }] }));
-  const updateChapter = (i: number, key: "t" | "label", val: string) => {
+    if (!f) {
+      setForm((s) => ({ ...s, audioFile: null, audioFileName: "" }));
+      return;
+    }
+    // 1) 预填标题
+    const guessedTitle = guessTitleFromFileName(f.name);
     setForm((s) => ({
       ...s,
-      chapters: s.chapters.map((c, idx) => (idx === i ? { ...c, [key]: val } : c)),
+      audioFile: f,
+      audioFileName: f.name,
+      title: s.title.trim() ? s.title : guessedTitle,
     }));
-  };
-  const removeChapter = (i: number) => {
-    setForm((s) => ({ ...s, chapters: s.chapters.filter((_, idx) => idx !== i) }));
+    // 2) 读取音频时长
+    try {
+      const url = URL.createObjectURL(f);
+      const audio = new Audio();
+      audio.preload = "metadata";
+      audio.onloadedmetadata = () => {
+        const sec = audio.duration;
+        URL.revokeObjectURL(url);
+        if (isFinite(sec) && sec > 0) {
+          const minutes = (sec / 60).toFixed(1);
+          setForm((s) => ({ ...s, duration_sec: s.duration_sec ? s.duration_sec : minutes }));
+        }
+      };
+      audio.onerror = () => URL.revokeObjectURL(url);
+      audio.src = url;
+    } catch {}
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -187,9 +229,7 @@ export default function AdminPage() {
         topic: form.topic,
         audio_url,
         cover: cover_url,
-        chapters: form.chapters
-          .filter((c) => c.label.trim())
-          .map((c) => ({ t: parseInt(c.t || "0", 10), label: c.label.trim() })),
+        chapters: parseChapters(form.chaptersText),
         featured: false,
       });
       setList([newEp, ...list]);
@@ -356,48 +396,19 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* 章节时间标签 */}
+          {/* 章节时间标签（单文本框：mm:ss 标题） */}
           <div>
-            <div className="mb-2 flex items-center justify-between">
-              <label className="text-sm font-medium text-white">章节时间标签</label>
-              <button
-                type="button"
-                onClick={addChapter}
-                className="inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-1 text-xs text-white/80 ring-1 ring-inset ring-white/10 hover:bg-white/10"
-              >
-                <Plus className="h-3 w-3" /> 添加
-              </button>
-            </div>
-            <div className="space-y-2">
-              {form.chapters.map((c, i) => (
-                <div key={i} className="flex gap-2">
-                  <input
-                    value={c.t}
-                    onChange={(e) => updateChapter(i, "t", e.target.value)}
-                    placeholder="秒"
-                    type="number"
-                    className="w-24 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
-                  />
-                  <input
-                    value={c.label}
-                    onChange={(e) => updateChapter(i, "label", e.target.value)}
-                    placeholder="章节名"
-                    className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-violet-400/60"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeChapter(i)}
-                    className="rounded-lg p-2 text-white/50 hover:bg-white/10 hover:text-rose-300"
-                    aria-label="删除"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-              {form.chapters.length === 0 && (
-                <p className="text-xs text-white/40">没有章节。点"添加"加一个。</p>
-              )}
-            </div>
+            <label className="mb-2 block text-sm font-medium text-white">章节时间标签</label>
+            <textarea
+              value={form.chaptersText}
+              onChange={(e) => setForm({ ...form, chaptersText: e.target.value })}
+              rows={6}
+              placeholder={"00:00  开场\n02:30  本期主题\n15:42  收尾互动"}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 font-mono text-sm text-white placeholder-white/30 outline-none focus:border-violet-400/60"
+            />
+            <p className="mt-1 text-xs text-white/40">
+              一行一个，格式 <span className="font-mono">mm:ss  章节名</span>（中间 2 个空格）。解析后 {parseChapters(form.chaptersText).length} 条。
+            </p>
           </div>
 
           <div className="flex items-center gap-3 border-t border-white/5 pt-4">
