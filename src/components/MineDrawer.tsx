@@ -37,7 +37,9 @@ export function MineDrawer({ open, onClose }: { open: boolean; onClose: () => vo
         .select("podcast_id")
         .eq("device_id", deviceId)
         .eq("type", "like");
-      const ids = Array.from(new Set([...(favs ?? []).map((r) => r.podcast_id), ...(lks ?? []).map((r) => r.podcast_id)]));
+      const favRows = (favs ?? []) as { podcast_id: string }[];
+      const likeRows = (lks ?? []) as { podcast_id: string }[];
+      const ids = Array.from(new Set([...favRows.map((r) => r.podcast_id), ...likeRows.map((r) => r.podcast_id)]));
       if (ids.length === 0) {
         setFavorites([]);
         setLikes([]);
@@ -46,8 +48,8 @@ export function MineDrawer({ open, onClose }: { open: boolean; onClose: () => vo
       }
       const { data: eps } = await sb.from("episodes").select("*").in("id", ids);
       const list = (eps ?? []) as Episode[];
-      const favSet = new Set((favs ?? []).map((r) => r.podcast_id));
-      const likeSet = new Set((lks ?? []).map((r) => r.podcast_id));
+      const favSet = new Set(favRows.map((r) => r.podcast_id));
+      const likeSet = new Set(likeRows.map((r) => r.podcast_id));
       setFavorites(list.filter((e) => favSet.has(e.id)));
       setLikes(list.filter((e) => likeSet.has(e.id)));
       setLoading(false);
