@@ -159,28 +159,36 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
 
   const onLike = () => {
     const next = vote === "like" ? null : "like";
+    const prev = vote;
     setVote(next);
     persist({ vote: next });
+    // 1. 取消/切换出原 type: 旧记录删除 + 旧计数 -1
+    if (prev) {
+      removeInteraction(ep.id, prev).catch(() => {});
+      setCounts((c) => ({ ...c, [prev]: Math.max(0, c[prev] - 1) }));
+    }
+    // 2. 新 type: 记录 + 计数 +1
     if (next) {
       recordInteraction(ep.id, "like").catch(() => {});
       setCounts((c) => ({ ...c, like: c.like + 1 }));
       push("like");
-    } else {
-      removeInteraction(ep.id, "like").catch(() => {});
-      setCounts((c) => ({ ...c, like: Math.max(0, c.like - 1) }));
     }
   };
   const onDislike = () => {
     const next = vote === "dislike" ? null : "dislike";
+    const prev = vote;
     setVote(next);
     persist({ vote: next });
+    // 1. 取消/切换出原 type
+    if (prev) {
+      removeInteraction(ep.id, prev).catch(() => {});
+      setCounts((c) => ({ ...c, [prev]: Math.max(0, c[prev] - 1) }));
+    }
+    // 2. 新 type
     if (next) {
       recordInteraction(ep.id, "dislike").catch(() => {});
       setCounts((c) => ({ ...c, dislike: c.dislike + 1 }));
       push("dislike");
-    } else {
-      removeInteraction(ep.id, "dislike").catch(() => {});
-      setCounts((c) => ({ ...c, dislike: Math.max(0, c.dislike - 1) }));
     }
   };
   const onFav = () => {
@@ -202,8 +210,8 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
     try {
       await navigator.clipboard.writeText(url);
     } catch {}
-    recordInteraction(ep.id, "share").catch(() => {});
-    setCounts((c) => ({ ...c, share: c.share + 1 }));
+    // share 是动作不是状态:不递增计数，不后端记录(只复制链接 + 弹 toast)
+    // 刷新归位是因为后端 onConflict:ignore 去重但前端 state 一直 +
     push("share");
   };
 
@@ -223,6 +231,13 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
           <div
             className={`relative aspect-square w-full overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} ring-1 ring-white/10`}
           >
+            {ep.cover_url ? (
+              <img
+                src={ep.cover_url}
+                alt={ep.title}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : null}
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 backdrop-blur transition hover:scale-105 hover:bg-white/20">
                 <Play className="h-9 w-9 fill-white text-white" />
