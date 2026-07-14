@@ -229,7 +229,7 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
         {/* 封面 + 信息 */}
         <div className="grid gap-6 md:grid-cols-[200px_1fr]">
           <div
-            className={`relative aspect-square w-full overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} ring-1 ring-white/10`}
+            className={`group relative aspect-square w-full overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} ring-1 ring-white/10`}
           >
             {ep.cover_url ? (
               <img
@@ -238,11 +238,26 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
                 className="absolute inset-0 h-full w-full object-cover"
               />
             ) : null}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 backdrop-blur transition hover:scale-105 hover:bg-white/20">
-                <Play className="h-9 w-9 fill-white text-white" />
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={togglePlay}
+              aria-label={playing ? "暂停" : "播放"}
+              className="absolute inset-0 flex items-center justify-center bg-black/0 transition hover:bg-black/30"
+            >
+              <span
+                className={`flex h-20 w-20 items-center justify-center rounded-full backdrop-blur transition group-hover:scale-105 ${
+                  playing
+                    ? "bg-violet-500/90 hover:bg-violet-500"
+                    : "bg-white/10 hover:bg-white/20"
+                }`}
+              >
+                {playing ? (
+                  <Pause className="h-9 w-9 fill-white text-white" />
+                ) : (
+                  <Play className="h-9 w-9 fill-white text-white" />
+                )}
+              </span>
+            </button>
             <div className="absolute bottom-2 right-2 rounded-md bg-black/60 px-2 py-0.5 text-xs text-white">
               {formatDuration(ep.duration_sec)}
             </div>
