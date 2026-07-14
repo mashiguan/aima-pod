@@ -300,7 +300,7 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
                 step={1}
                 onChange={(e) => seekTo(Number(e.target.value))}
                 className="aima-range w-full"
-                style={{ ["--pct" as any]: `${pct}%` }}
+                style={{ ["--pct" as string]: `${pct}%` } as React.CSSProperties}
                 aria-label="播放进度"
               />
               <div className="mt-1 flex justify-between text-xs text-white/50 tabular-nums">

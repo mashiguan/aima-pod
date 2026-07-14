@@ -33,6 +33,7 @@ export interface Episode {
   description: string;
   author: string;
   cover: string | null;
+  cover_url?: string | null;
   audio_url: string;
   duration_sec: number;
   plays: number;
