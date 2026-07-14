@@ -9,8 +9,8 @@ import {
   TOPICS,
   coverGradient,
 } from "@/lib/mock-data";
-import { getEpisode, hasInteraction, recordInteraction, removeInteraction, recordPlay, getInteractionCounts } from "@/lib/api";
-import { Episode } from "@/lib/types";
+import { getEpisode, hasInteraction, recordInteraction, removeInteraction, recordPlay, getInteractionCounts, listTags } from "@/lib/api";
+import { Episode, Tag } from "@/lib/types";
 import {
   ArrowLeft,
   Play,
@@ -46,6 +46,9 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
     getInteractionCounts(id).then((c) => {
       if (alive) setCounts(c);
     });
+    listTags().then((tags) => {
+      if (alive) setTagMap(new Map(tags.map((t) => [`${t.kind}:${t.value}`, t])));
+    });
     return () => {
       alive = false;
     };
@@ -60,6 +63,7 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
   const [vote, setVote] = useState<"like" | "dislike" | null>(null);
   const [fav, setFav] = useState(false);
   const [counts, setCounts] = useState<{ like: number; dislike: number; favorite: number; share: number }>({ like: 0, dislike: 0, favorite: 0, share: 0 });
+  const [tagMap, setTagMap] = useState<Map<string, Tag>>(new Map());
 
   const { push, list: toastList } = useToast();
 
@@ -98,8 +102,14 @@ export default function EpisodePage({ params }: { params: { id: string } }) {
     );
   }
 
-  const genre = GENRES.find((g) => g.value === ep.genre);
-  const topic = TOPICS.find((t) => t.value === ep.topic);
+  const tagGenre = tagMap.get(`genre:${ep.genre}`);
+  const tagTopic = tagMap.get(`topic:${ep.topic}`);
+  const genre = tagGenre
+    ? { value: tagGenre.value, label: tagGenre.label, color: tagGenre.color }
+    : GENRES.find((g) => g.value === ep.genre);
+  const topic = tagTopic
+    ? { value: tagTopic.value, label: tagTopic.label, color: tagTopic.color }
+    : TOPICS.find((t) => t.value === ep.topic);
   const gradient = coverGradient(ep.id);
   const dur = Number(ep.duration_sec) || 0;
   const pct = dur > 0 ? Math.min(100, (currentTime / dur) * 100) : 0;

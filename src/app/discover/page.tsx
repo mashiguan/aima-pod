@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { GENRES, TOPICS } from "@/lib/mock-data";
 import { EpisodeCard } from "@/components/EpisodeCard";
-import { listEpisodes } from "@/lib/api";
-import { Episode } from "@/lib/types";
+import { listEpisodes, listTags } from "@/lib/api";
+import { Episode, Tag } from "@/lib/types";
 import { Search, X } from "lucide-react";
 
 type SortKey = "newest" | "popular" | "shortest" | "longest";
@@ -22,13 +22,15 @@ export default function DiscoverPage() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [sort, setSort] = useState<SortKey>("newest");
   const [all, setAll] = useState<Episode[]>([]);
+  const [tagMap, setTagMap] = useState<Map<string, Tag>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
-    listEpisodes().then((list) => {
+    Promise.all([listEpisodes(), listTags()]).then(([list, tags]) => {
       if (alive) {
         setAll(list);
+        setTagMap(new Map(tags.map((t) => [`${t.kind}:${t.value}`, t])));
         setLoading(false);
       }
     });
@@ -180,7 +182,7 @@ export default function DiscoverPage() {
       ) : (
         <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {results.map((ep) => (
-            <EpisodeCard key={ep.id} ep={ep} />
+            <EpisodeCard key={ep.id} ep={ep} tagMap={tagMap} />
           ))}
         </div>
       )}

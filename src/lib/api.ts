@@ -6,7 +6,7 @@
  * 所有组件统一从这套 API 拿数据，不直接 import mock。
  */
 
-import { Episode, Interaction, InteractionType } from "./types";
+import { Episode, Interaction, InteractionType, Tag } from "./types";
 import { MOCK_EPISODES } from "./mock-data";
 import { createClient } from "./supabase/client";
 import { getDeviceId } from "./supabase/device";
@@ -236,4 +236,80 @@ function rowToEpisode(row: any): Episode {
     published_at: row.published_at,
     featured: !!row.featured,
   };
+}
+
+/* ---------- 5. 标签管理 ---------- */
+
+/** 后台可用的 8 套 Tailwind 调色板（防乱填） */
+export const TAG_COLOR_PRESETS = [
+  { name: "玫红", value: "bg-rose-500/10 text-rose-300 ring-rose-500/30" },
+  { name: "橙",   value: "bg-orange-500/10 text-orange-300 ring-orange-500/30" },
+  { name: "琥珀", value: "bg-amber-500/10 text-amber-300 ring-amber-500/30" },
+  { name: "黄绿", value: "bg-emerald-500/10 text-emerald-300 ring-emerald-500/30" },
+  { name: "青",   value: "bg-teal-500/10 text-teal-300 ring-teal-500/30" },
+  { name: "天蓝", value: "bg-cyan-500/10 text-cyan-300 ring-cyan-500/30" },
+  { name: "蓝",   value: "bg-sky-500/10 text-sky-300 ring-sky-500/30" },
+  { name: "紫",   value: "bg-violet-500/10 text-violet-300 ring-violet-500/30" },
+  { name: "粉",   value: "bg-pink-500/10 text-pink-300 ring-pink-500/30" },
+  { name: "品红", value: "bg-fuchsia-500/10 text-fuchsia-300 ring-fuchsia-500/30" },
+];
+
+export async function listTags(kind?: "genre" | "topic"): Promise<Tag[]> {
+  const sb = createClient();
+  if (!sb) return [];
+  let q = sb.from("tags").select("*").order("sort", { ascending: true });
+  if (kind) q = q.eq("kind", kind);
+  const { data, error } = await q;
+  if (error || !data) {
+    console.warn("[supabase] listTags failed:", error?.message);
+    return [];
+  }
+  return (data as Tag[]).map((t) => ({
+    id: t.id,
+    kind: t.kind,
+    value: t.value,
+    label: t.label,
+    color: t.color,
+    sort: t.sort ?? 0,
+  }));
+}
+
+export interface NewTagInput {
+  kind: "genre" | "topic";
+  value: string;
+  label: string;
+  color: string;
+  sort?: number;
+}
+
+export async function createTag(input: NewTagInput): Promise<Tag> {
+  const sb = createClient();
+  if (!sb) throw new Error("Supabase 未配置");
+  const { data, error } = await sb
+    .from("tags")
+    .insert({
+      kind: input.kind,
+      value: input.value,
+      label: input.label,
+      color: input.color,
+      sort: input.sort ?? 999,
+    })
+    .select()
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "创建失败");
+  return data as Tag;
+}
+
+export async function updateTag(id: string, patch: Partial<NewTagInput>): Promise<void> {
+  const sb = createClient();
+  if (!sb) throw new Error("Supabase 未配置");
+  const { error } = await sb.from("tags").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteTag(id: string): Promise<void> {
+  const sb = createClient();
+  if (!sb) throw new Error("Supabase 未配置");
+  const { error } = await sb.from("tags").delete().eq("id", id);
+  if (error) throw new Error(error.message);
 }

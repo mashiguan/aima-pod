@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { EpisodeCard } from "@/components/EpisodeCard";
-import { listEpisodes } from "@/lib/api";
+import { listEpisodes, listTags } from "@/lib/api";
 import { ArrowRight, Sparkles } from "lucide-react";
 
 // 实时拉取：后台发新节目后刷首页立刻能看到
@@ -9,6 +9,8 @@ export const revalidate = 0;
 
 export default async function HomePage() {
   const all = await listEpisodes();
+  const allTags = await listTags();
+  const tagMap = new Map(allTags.map((t) => [`${t.kind}:${t.value}`, t]));
   // 热门 = 按 plays 降序取前 4
   const featured = [...all].sort((a, b) => (b.plays || 0) - (a.plays || 0)).slice(0, 4);
   // 最新 = 按发布时间降序取前 4（与热门不互斥，同一部可以两边都在）
@@ -70,7 +72,7 @@ export default async function HomePage() {
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {featured.map((ep) => (
-            <EpisodeCard key={ep.id} ep={ep} />
+            <EpisodeCard key={ep.id} ep={ep} tagMap={tagMap} />
           ))}
         </div>
       </section>
@@ -85,7 +87,7 @@ export default async function HomePage() {
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {latest.map((ep) => (
-            <EpisodeCard key={ep.id} ep={ep} />
+            <EpisodeCard key={ep.id} ep={ep} tagMap={tagMap} />
           ))}
         </div>
       </section>

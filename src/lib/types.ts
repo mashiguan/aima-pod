@@ -9,6 +9,16 @@ export type Genre = (typeof GENRES)[number];
 export const TOPICS = ["历史", "科技", "文化", "生活", "商业", "娱乐"] as const;
 export type Topic = (typeof TOPICS)[number];
 
+/** 标签（后台可自定义的体裁 / 主题，存 Supabase tags 表） */
+export interface Tag {
+  id: string;
+  kind: "genre" | "topic";
+  value: string;
+  label: string;
+  color: string;
+  sort: number;
+}
+
 export const INTERACTION_TYPES = ["like", "dislike", "favorite", "share"] as const;
 export type InteractionType = (typeof INTERACTION_TYPES)[number];
 

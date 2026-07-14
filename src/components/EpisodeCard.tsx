@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Episode } from "@/lib/types";
+import { Episode, Tag } from "@/lib/types";
 import {
   formatDuration,
   formatPlays,
@@ -26,9 +26,16 @@ void (
   "from-fuchsia-500 via-purple-500 to-indigo-600"
 );
 
-export function EpisodeCard({ ep }: { ep: Episode }) {
-  const genre = GENRES.find((g) => g.value === ep.genre);
-  const topic = TOPICS.find((t) => t.value === ep.topic);
+export function EpisodeCard({ ep, tagMap }: { ep: Episode; tagMap?: Map<string, Tag> }) {
+  // 优先从后台 tags 表查,fallback 到 mock 默认
+  const tagGenre = tagMap?.get(`genre:${ep.genre}`);
+  const tagTopic = tagMap?.get(`topic:${ep.topic}`);
+  const genre = tagGenre
+    ? { value: tagGenre.value, label: tagGenre.label, color: tagGenre.color }
+    : GENRES.find((g) => g.value === ep.genre);
+  const topic = tagTopic
+    ? { value: tagTopic.value, label: tagTopic.label, color: tagTopic.color }
+    : TOPICS.find((t) => t.value === ep.topic);
   const gradient = coverGradient(ep.id);
   const glyph = coverGlyph(ep.title);
   return (
