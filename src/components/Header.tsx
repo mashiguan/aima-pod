@@ -24,19 +24,22 @@ export function Header() {
               href="/discover"
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white/70 transition hover:bg-white/5 hover:text-white"
             >
-              <Compass className="h-3.5 w-3.5" /> 发现
+              <Compass className="h-4 w-4" />
+              <span className="hidden sm:inline">发现</span>
             </Link>
             <Link
               href="/albums"
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white/70 transition hover:bg-white/5 hover:text-white"
             >
-              <Disc3 className="h-3.5 w-3.5" /> 专辑
+              <Disc3 className="h-4 w-4" />
+              <span className="hidden sm:inline">专辑</span>
             </Link>
             <button
               onClick={() => setMineOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white/70 transition hover:bg-white/5 hover:text-white"
             >
-              <User className="h-3.5 w-3.5" /> 我
+              <User className="h-4 w-4" />
+              <span className="hidden sm:inline">我</span>
             </button>
           </nav>
         </div>
