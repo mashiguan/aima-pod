@@ -17,7 +17,6 @@ export function Header() {
             </div>
             <div>
               <p className="text-sm font-bold text-white">爱玛播</p>
-              <p className="text-[10px] text-white/50">小马歌 · 声音与故事</p>
             </div>
           </Link>
           <nav className="flex items-center gap-1 text-sm">
@@ -37,7 +36,7 @@ export function Header() {
               onClick={() => setMineOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white/70 transition hover:bg-white/5 hover:text-white"
             >
-              <User className="h-3.5 w-3.5" /> 我的
+              <User className="h-3.5 w-3.5" /> 我
             </button>
           </nav>
         </div>
