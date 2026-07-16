@@ -45,7 +45,7 @@ export default function AdminAlbumsPage() {
   if (!authed) {
     return (
       <div className="mx-auto max-w-md px-6 py-20 text-center text-white/60">
-        请先在 <a href="/admin" className="text-violet-300 underline">/admin</a> 通过密码门
+        请先在 <a href="/madmin" className="text-violet-300 underline">/madmin</a> 通过密码门
       </div>
     );
   }
@@ -137,7 +137,7 @@ export default function AdminAlbumsPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">专辑管理</h1>
         <a
-          href="/admin"
+          href="/madmin"
           className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
         >
           ← 上传节目

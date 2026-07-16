@@ -92,7 +92,7 @@ export default function AdminTagsPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">标签管理</h1>
         <a
-          href="/admin"
+          href="/madmin"
           className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:bg-white/10"
         >
           ← 上传节目

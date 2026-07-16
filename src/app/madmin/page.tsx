@@ -376,13 +376,13 @@ export default function AdminPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            href="/admin/tags"
+            href="/madmin/tags"
             className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:border-violet-400 hover:bg-violet-500/15 hover:text-violet-200"
           >
             <Tags className="h-3.5 w-3.5" /> 标签管理
           </Link>
           <Link
-            href="/admin/albums"
+            href="/madmin/albums"
             className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 hover:border-violet-400 hover:bg-violet-500/15 hover:text-violet-200"
           >
             <Disc3 className="h-3.5 w-3.5" /> 专辑管理
@@ -554,7 +554,7 @@ export default function AdminPage() {
             </select>
             {albums.length === 0 && (
               <p className="mt-1 text-xs text-white/40">
-                还没有专辑,去 <a href="/admin/albums" className="text-violet-300 underline">/admin/albums</a> 创建一个
+                还没有专辑,去 <a href="/madmin/albums" className="text-violet-300 underline">/madmin/albums</a> 创建一个
               </p>
             )}
           </div>

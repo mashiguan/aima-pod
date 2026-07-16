@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Home, Compass, User, Headphones, Disc3 } from "lucide-react";
+import { Compass, User, Headphones, Disc3 } from "lucide-react";
 import { MineDrawer } from "./MineDrawer";
 
 export function Header() {
@@ -21,12 +21,6 @@ export function Header() {
             </div>
           </Link>
           <nav className="flex items-center gap-1 text-sm">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white/70 transition hover:bg-white/5 hover:text-white"
-            >
-              <Home className="h-3.5 w-3.5" /> 首页
-            </Link>
             <Link
               href="/discover"
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white/70 transition hover:bg-white/5 hover:text-white"
